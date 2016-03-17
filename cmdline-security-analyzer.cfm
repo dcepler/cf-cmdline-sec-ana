@@ -124,6 +124,8 @@
 	// build POST body for RDS request
 	variables.postBody = generateRDSPostBody([variables.scanDirectory, variables.recursive, variables.username, encryptRDSPassword(variables.password)]);
 
+	variables.scanStart = getTickCount();
+	
 	// execute RDS request for security analyzer
 	try {
 		cfhttp(method="POST", charset="utf-8", url=variables.serverURL & variables.securityAnalyzerQueryString, result="variables.rdsResult", userAgent=variables.userAgent, timeout=variables.requestTimeout) {
@@ -143,6 +145,8 @@
 	// auth failure
 	// -100:Unable to authenticate on RDS server using current security information.
 	
+	variables.scanDuration = (getTickCount() - variables.scanStart) / 1000;
+	
 	variables.jsonResult = mid(variables.rdsResult.fileContent, find("{", variables.rdsResult.fileContent), (len(variables.rdsResult.fileContent) - find("{", variables.rdsResult.fileContent) + 1));
 
 	switch(variables.outputFormat) {
@@ -153,6 +157,9 @@
 			variables.htmlReport = fileRead(variables.currentWorkingDirectory & "report-template.html");
 			
 			variables.htmlReport = replace(variables.htmlReport, "{$securityAnalyzerResult}", variables.jsonResult);
+			variables.htmlReport = replace(variables.htmlReport, "{$reportDate}", now().dateTimeFormat("full"));
+			variables.htmlReport = replace(variables.htmlReport, "{$scanDirectory}", variables.scanDirectory);
+			variables.htmlReport = replace(variables.htmlReport, "{$scanDuration}", variables.scanDuration & " seconds");
 			fileWrite(variables.outputDirectory & variables.outputFilename & "." & variables.outputFormat, variables.htmlReport);
 			break;
 		default:
