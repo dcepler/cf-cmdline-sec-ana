@@ -26,9 +26,9 @@
 					</div>
 					<div class="panel-body">
 						<dl class="dl-horizontal">
-							<dt>Date</dt><dd>{$reportDate}</dd>
-							<dt>Directory</dt><dd>{$scanDirectory}</dd>
-							<dt>Duration</dt><dd>{$scanDuration}</dd>
+							<dt>Date</dt><dd>${reportDate}</dd>
+							<dt>Directory</dt><dd>${scanDirectory}</dd>
+							<dt>Duration</dt><dd>${scanDuration}</dd>
 						</dl>
 					</div>
 				</div>			
@@ -55,12 +55,25 @@
 				 		<h3 class="panel-title">Vulnerabilties</h3>
 					</div>
 					<div class="panel-body">
-						<table id="reportDataTable" class="table table-striped table-bordered table-hover"></table>
+						<table id="reportDataTable" class="table table-striped table-bordered table-hover">
+							<thead>
+								<tr>
+									<th>Filename</th>
+									<th>Vulnerability</th>
+									<th>Type</th>
+									<th>Line></th>
+									<th>Column</th>
+									<th>Fragment</th>
+								</tr>
+							</thead>
+							<tbody>
+								${vulnerabilityList}
+							</tbody>
+						</table>
 					</div>
 				</div>			
 			</div>
 		</div>
-<!--		
 		<div class="row">
 			<div class="col-md-12">
 				<div class="panel panel-default">
@@ -68,12 +81,21 @@
 				 		<h3 class="panel-title">Unable to Scan</h3>
 					</div>
 					<div class="panel-body">
-						<table id="unscanableDataTable" class="table table-striped table-bordered table-hover"></table>
+						<table id="unscanableDataTable" class="table table-striped table-bordered table-hover">
+							<thead>
+								<tr>
+									<th>Filename</th>
+								</tr>
+							</thead>
+							<tbody>
+								${unscanableList}
+							</tbody>
+						</table>
+
 					</div>
 				</div>			
 			</div>
 		</div>
--->
 	</div>  	
 
 	<script type="text/javascript" src="https://code.jquery.com/jquery-2.2.0.min.js"></script>
@@ -85,7 +107,7 @@
 	<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/1.0.2/Chart.min.js"></script>
 	
 	<script>
-	var securityAnalyzerData = {$securityAnalyzerResult};
+	var securityAnalyzerData = ${securityAnalyzerResult};
 
 	$(document).ready(function() {
 
@@ -104,30 +126,11 @@
 					'error': 0,
 					'warning': 0};
 
-		// generate data table for report
-	    $('#reportDataTable').DataTable( {
-	    	lengthMenu: [ [10, 25, 50, -1], [10, 25, 50, "All"] ],
-	        data: securityAnalyzerData.errors,
-	        columns: [
-	            { title: "Filename", data: "path" },
-	            { title: "Vulnerability", data: "Error" },
-	            { title: "Type", data: "type"},
-	            { title: "Line", data: "beginline"},
-	            { title: "Column", data: "begincolumn"},
-	            { title: "Fragment", data: "vulnerablecode", defaultContent: ""}
-	        ]
-	    } );
+		// generate data table for vulnerability report
+	    $('#reportDataTable').DataTable();
 
-		// unscanable files
-		/*
-	    $('#unscanableDataTable').DataTable( {
-	    	lengthMenu: [ [10, 25, 50, -1], [10, 25, 50, "All"] ],
-	        data: securityAnalyzerData.invalidfiles,
-	        columns: [
-	            { title: "Filename" }
-	        ]
-	    } );
-		*/
+		// generate data table for unscanable files
+		$('#unscanableDataTable').DataTable();
 
 		// count vulnerabilities and types
 		$.each(securityAnalyzerData.errors, function(id, item) {
@@ -142,9 +145,7 @@
         			{
             		label: "Vulnerability Types",
             		fillColor: "#F7464A",
-            		//strokeColor: "rgba(220,220,220,0.8)",
             		highlightFill: "#FF5A5E",
-            		//highlightStroke: "rgba(220,220,220,1)",
             		data: [counter.sqlinjection, counter.xssattack, counter.htmltopdfxssattack, counter.csrfattack, counter.cookiesvalidations, counter.cflocationvalidations, counter.passwords, counter.fileupload, counter.getvspost, counter.fileinjection, counter.unnamedapp]
         			}
 			    ]
