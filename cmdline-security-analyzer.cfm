@@ -63,6 +63,26 @@
 		
 		return lCase(binaryEncode(binaryDecode(replaceNoCase(encryptedPassword, " ", "0", "all"), "hex"), "hex"));
 	}
+	
+	public string function generateVulnerabilityTable(required struct data){
+		var tableData = "";
+		
+		for (var item in arguments.data.errors) {
+			tableData &= "<tr><td>" & item.path & "</td><td>" & item.Error & "</td><td>" & item.type & "</td><td>" & item.beginline & "</td><td>" & item.begincolumn & "</td><td>" & (structKeyExists(item, "vulnerablecode")? item.vulnerablecode : "") & "</td></tr>";
+		}
+		
+		return tableData;		
+	}
+	
+	public string function generateUnscanableTable(required struct data){
+		var tableData = "";
+		
+		for ( item in arguments.data.invalidfiles) {
+			tableData &= "<tr><td>" & item & "</td></tr>";
+		}
+		
+		return tableData;		
+	}
 
 	//
 	variables.securityAnalyzerQueryString = "/CFIDE/main/ide.cfm?CFSRV=IDE&ACTION=SECURITYANALYZER";
@@ -80,7 +100,7 @@
 	variables.recursive = cli.getNamedArg("recursive")?: "true";
 	variables.serverURL = cli.getNamedArg("serverURL")?: "http://127.0.0.1:8500";
 	variables.outputDirectory = cli.getNamedArg("outputDirectory")?: variables.currentWorkingDirectory;
-	variables.outputFilename = cli.getNamedArg("outputFilename")?: "securityanalyzer-" & dateTimeFormat(now(), "yyyymmddHHnnss");
+	variables.outputFilename = cli.getNamedArg("outputFilename")?: "securityanalyzer-" & now().dateTimeFormat("yyyymmddHHnnss");
 	variables.outputFormat = cli.getNamedArg("outputFormat")?: "html";
 
 	// show help information if no args or first arg is "help"
@@ -148,6 +168,7 @@
 	variables.scanDuration = (getTickCount() - variables.scanStart) / 1000;
 	
 	variables.jsonResult = mid(variables.rdsResult.fileContent, find("{", variables.rdsResult.fileContent), (len(variables.rdsResult.fileContent) - find("{", variables.rdsResult.fileContent) + 1));
+	variables.scanResult = deserializeJSON(variables.jsonResult, true);
 
 	switch(variables.outputFormat) {
 		case "json":
@@ -156,15 +177,20 @@
 		case "html":
 			variables.htmlReport = fileRead(variables.currentWorkingDirectory & "report-template.html");
 			
-			variables.htmlReport = replace(variables.htmlReport, "{$securityAnalyzerResult}", variables.jsonResult);
-			variables.htmlReport = replace(variables.htmlReport, "{$reportDate}", now().dateTimeFormat("full"));
-			variables.htmlReport = replace(variables.htmlReport, "{$scanDirectory}", variables.scanDirectory);
-			variables.htmlReport = replace(variables.htmlReport, "{$scanDuration}", variables.scanDuration & " seconds");
+			variables.htmlReport = replace(variables.htmlReport, "${securityAnalyzerResult}", variables.jsonResult);
+			variables.htmlReport = replace(variables.htmlReport, "${reportDate}", now().dateTimeFormat("full"));
+			variables.htmlReport = replace(variables.htmlReport, "${scanDirectory}", variables.scanDirectory);
+			variables.htmlReport = replace(variables.htmlReport, "${scanDuration}", variables.scanDuration & " seconds");
+			variables.htmlReport = replace(variables.htmlReport, "${vulnerabilityList}", generateVulnerabilityTable(variables.scanResult));
+			variables.htmlReport = replace(variables.htmlReport, "${unscanableList}", generateUnscanableTable(variables.scanResult));
 			fileWrite(variables.outputDirectory & variables.outputFilename & "." & variables.outputFormat, variables.htmlReport);
 			break;
 		default:
 		
 	}
 
-// writeDump(var=variables, format="text");
+	cli.exit(0);
+
+//writeDump(var=variables, format="text");
+
 </cfscript>
