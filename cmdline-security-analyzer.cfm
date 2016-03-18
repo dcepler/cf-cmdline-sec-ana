@@ -77,7 +77,7 @@
 	public string function generateUnscanableTable(required struct data){
 		var tableData = "";
 		
-		for ( item in arguments.data.invalidfiles) {
+		for (var item in arguments.data.invalidfiles) {
 			tableData &= "<tr><td>" & item & "</td></tr>";
 		}
 		
