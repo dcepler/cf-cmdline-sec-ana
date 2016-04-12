@@ -29,6 +29,7 @@
 		cli.write("  scanDirectory - directory to scan, required" & crlf);
 		cli.write("  [recursive] - scan directories recursively, default: true" & crlf);
 		cli.write("  [serverURL] - server URL for service, default: http://127.0.0.1:8500" & crlf);
+		cli.write("  [pollDelay] - polling wait time in milliseconds, default: 1000" & crlf);
 		cli.write("  [outputDirectory] - output directory, default: current directory" & crlf);
 		cli.write("  [outputFilename] - output filename, default: securityanalyzer-yyyymmddhhmmss" & crlf);
 		cli.write("  [outputFormat] - json or html, default: html" & crlf);
@@ -39,20 +40,10 @@
 
 	}
 
-	public string function generateRDSPostBody(required array parameters) {
-		var postBody = arrayLen(arguments.parameters) & ":";
-		
-		for(var param in arguments.parameters) {
-			postBody &= "STR:" & len(param) & ":" & param;
-		}
-		
-		return postBody; 
-	}
-
 	// Used strXor() by Peter Day from http://cflib.org/udf/strXOR as basis for function
 	// modifed to properly generate XOR'd RDS password from known key
 	//
-	public string function encryptRDSPassword(required string password) {
+	private string function encryptRDSPassword(required string password) {
 		var key = "4p0L@r1$";
 		var repeatedKey = left(repeatString(key, ceiling(len(arguments.password) / len(key))), len(arguments.password));
 		var encryptedPassword = "";
@@ -63,7 +54,118 @@
 		
 		return lCase(binaryEncode(binaryDecode(replaceNoCase(encryptedPassword, " ", "0", "all"), "hex"), "hex"));
 	}
+
+	private string function generateRDSPostBody(required array parameters) {
+		var postBody = arrayLen(arguments.parameters) & ":";
+		
+		for(var param in arguments.parameters) {
+			postBody &= "STR:" & len(param) & ":" & param;
+		}
+		
+		return postBody; 
+	}
+
+	private string function sendRDSPost(required string serverURL, required string securityAnalyzerQueryString, required string userAgent, required string postBody, numeric requestTimeout=60) {
 	
+		var rdsResult = "";
+
+		// execute RDS request for security analyzer
+		try {
+			cfhttp(method="POST", charset="utf-8", url=arguments.serverURL & arguments.securityAnalyzerQueryString, result="rdsResult", userAgent=arguments.userAgent, timeout=arguments.requestTimeout) {
+		    	cfhttpparam(type="body", value=arguments.postBody);
+			}
+		}
+		catch (any exception) {
+			rethrow; 
+		}
+		
+		// authentication failure
+		if (findNoCase("-100:Unable to authenticate on RDS server using current security information", rdsResult.fileContent)) {
+			throw(type="sendRDSPost", message="ERROR: Invalid username and/or password for RDS server", detail=rdsResult.errorDetail, errorCode=-2); 
+		}
+	
+		// connection failure
+		if (findNoCase("Connection Failure", rdsResult.fileContent)) {
+			throw(type="sendRDSPost", message="ERROR: Connection failure", detail=rdsResult.errorDetail, errorCode=-2); 
+		}
+
+		return mid(rdsResult.fileContent, find("{", rdsResult.fileContent), (len(rdsResult.fileContent) - find("{", rdsResult.fileContent) + 1));
+		
+	}
+
+	public string function executeSecurityAnalyzer(required string scanDirectory, required string recursive, required string username, required string password, numeric pollDelay=1000, required string serverURL, required string securityAnalyzerQueryString, required string userAgent, numeric requestTimeout=60) {
+		
+		// generate encrypted password once since used multiple times
+		var encryptedPassword = encryptRDSPassword(arguments.password);
+		
+		var jsonString = "";
+		var jsonResultString = "";
+		var scanResult = "";
+		var postBody = "";
+		
+		// status tracking of scan
+		var id = 0;
+		var percentageComplete = 0;
+
+		// generate scan command to start scan
+		try {
+			postBody = generateRDSPostBody(["SCAN", arguments.scanDirectory, arguments.recursive, arguments.username, encryptedPassword]);
+			jsonString = sendRDSPost(arguments.serverURL, arguments.securityAnalyzerQueryString, arguments.userAgent, postBody, arguments.requestTimeout);
+		}
+		catch (any exception) {
+			rethrow;
+		}
+
+		// convert JSON to ColdFusion variables
+		scanResult = deserializeJSON(jsonString, true);
+		
+		// populate items needed for subsequent commands
+		id = scanResult["id"];
+		percentageComplete = scanResult["percentage"];
+
+		// generate status command until reports 100% complete
+		while (percentageComplete != 100) {
+
+			try {
+				postBody = generateRDSPostBody(["STATUS", id, arguments.username, encryptedPassword]);
+				jsonString = sendRDSPost(arguments.serverURL, arguments.securityAnalyzerQueryString, arguments.userAgent, postBody, arguments.requestTimeout);
+			}
+			catch (any exception) {
+				rethrow;
+			}
+
+			scanResult = deserializeJSON(jsonString, true);
+
+			// update percentage
+			percentageComplete = scanResult["percentage"];
+			
+			// delay net status poll for delay time
+			sleep(arguments.pollDelay);
+			
+		}
+
+		// generate result command to get full results
+		try {
+			postBody = generateRDSPostBody(["RESULT", id, arguments.username, encryptedPassword]);
+			jsonResultString = sendRDSPost(arguments.serverURL, arguments.securityAnalyzerQueryString, arguments.userAgent, postBody, arguments.requestTimeout);
+		}
+		catch (any exception) {
+			rethrow;
+		}
+
+		// generate clean command to cleanup security analyzer processes
+		try {
+			postBody = generateRDSPostBody(["CLEAN", id, arguments.username, encryptedPassword]);
+			jsonString = sendRDSPost(arguments.serverURL, arguments.securityAnalyzerQueryString, arguments.userAgent, postBody, arguments.requestTimeout);
+		}
+		catch (any exception) {
+			rethrow;
+		}
+		
+		return jsonResultString;
+		
+ 	}
+
 	public string function generateVulnerabilityTable(required struct data){
 		var tableData = "";
 		
@@ -77,21 +179,27 @@
 	public string function generateUnscanableTable(required struct data){
 		var tableData = "";
 		
+		for (var item in arguments.data.cannotparsefiles) {
+			tableData &= "<tr><td>" & item & "</td><td>Encrypted</td></tr>";
+		}
+		
 		for (var item in arguments.data.invalidfiles) {
-			tableData &= "<tr><td>" & item & "</td></tr>";
+			tableData &= "<tr><td>" & item & "</td><td>Syntax Error</td></tr>";
 		}
 		
 		return tableData;		
 	}
 
-	//
+	// constants
 	variables.securityAnalyzerQueryString = "/CFIDE/main/ide.cfm?CFSRV=IDE&ACTION=SECURITYANALYZER";
 	variables.userAgent = "Mozilla/3.0 (compatible; Macromedia RDS Client)";
-	variables.requestTimeout = 600;
+	variables.requestTimeout = 60;
+	variables.crlf = chr(13) & chr(10);
+	variables.now = now();
 	
+	// determine current working directory
 	variables.currentWorkingDirectory = replace(getCurrentTemplatePath(), "\", "/", "all");
 	variables.currentWorkingDirectory = replace(variables.currentWorkingDirectory, listLast(variables.currentWorkingDirectory, "/"), "");
-
 
 	// populate from arguments
 	variables.username = cli.getNamedArg("username")?: "admin";
@@ -99,8 +207,9 @@
 	variables.scanDirectory = cli.getNamedArg("scanDirectory");
 	variables.recursive = cli.getNamedArg("recursive")?: "true";
 	variables.serverURL = cli.getNamedArg("serverURL")?: "http://127.0.0.1:8500";
+	variables.pollDelay = cli.getNamedArg("pollDelay")?: 1000;
 	variables.outputDirectory = cli.getNamedArg("outputDirectory")?: variables.currentWorkingDirectory;
-	variables.outputFilename = cli.getNamedArg("outputFilename")?: "securityanalyzer-" & now().dateTimeFormat("yyyymmddHHnnss");
+	variables.outputFilename = cli.getNamedArg("outputFilename")?: "securityanalyzer-" & variables.now.dateTimeFormat("yyyymmddHHnnss");
 	variables.outputFormat = cli.getNamedArg("outputFormat")?: "html";
 
 	// show help information if no args or first arg is "help"
@@ -122,7 +231,7 @@
 		cli.exit(-1);
 	} else {
 		variables.scanDirectory = replace(variables.scanDirectory, "\", "/", "all");
-		// verify scan directory exists
+		// TODO: verify scan directory exists
 	}
 
 	if (!isBoolean(variables.recursive)) {
@@ -132,7 +241,7 @@
 	}
 
 	variables.outputDirectory = replace(variables.outputDirectory, "\", "/", "all");
-	// verify outputDirectory exists
+	// TODO: verify outputDirectory exists
 
 	if (!ListFindNoCase("html,json", variables.outputFormat)) {
 		cli.writeError("ERROR: outputFormat must be html or json");
@@ -140,36 +249,35 @@
 		cli.exit(-1);
 	}
 	variables.outputFormat = lCase(variables.outputFormat);
-	
-	// build POST body for RDS request
-	variables.postBody = generateRDSPostBody([variables.scanDirectory, variables.recursive, variables.username, encryptRDSPassword(variables.password)]);
 
-	variables.scanStart = getTickCount();
+	if (!IsValid("integer", variables.pollDelay)) {
+		cli.writeError("ERROR: pollDelay must be an integer");
+		generateHelp();
+		cli.exit(-1);
+	}
+
+	if (variables.pollDelay < 250) {
+		cli.writeError("ERROR: pollDelay must be larger than 250 milliseconds");
+		generateHelp();
+		cli.exit(-1);
+	}
+	variables.pollDelay = int(variables.pollDelay);
 	
-	// execute RDS request for security analyzer
+	// execute security analyzer
+	variables.scanStart = getTickCount();
+
 	try {
-		cfhttp(method="POST", charset="utf-8", url=variables.serverURL & variables.securityAnalyzerQueryString, result="variables.rdsResult", userAgent=variables.userAgent, timeout=variables.requestTimeout) {
-	    	cfhttpparam(type="body", value=variables.postBody);
-		}
+		variables.jsonResult = executeSecurityAnalyzer(variables.scanDirectory, variables.recursive, variables.username, variables.password, variables.pollDelay, variables.serverURL, variables.securityAnalyzerQueryString, variables.userAgent, variables.requestTimeout);
 	}
-	catch (any excpt) {
-		cli.writeError("Error connecting to security analyzer");
-		writeDump(var=excpt, format="text");
-		cli.exit(-2);
+	catch (any exception) {
+		cli.writeError(exception.message);
+		cli.exit(exception.errorCode);
 	}
-	// more processing of result needs to happen
-	//
-	// connection failure
-	// Connection Failure
-	//
-	// auth failure
-	// -100:Unable to authenticate on RDS server using current security information.
 	
 	variables.scanDuration = (getTickCount() - variables.scanStart) / 1000;
-	
-	variables.jsonResult = mid(variables.rdsResult.fileContent, find("{", variables.rdsResult.fileContent), (len(variables.rdsResult.fileContent) - find("{", variables.rdsResult.fileContent) + 1));
 	variables.scanResult = deserializeJSON(variables.jsonResult, true);
 
+	// generate report
 	switch(variables.outputFormat) {
 		case "json":
 			fileWrite(variables.outputDirectory & variables.outputFilename & "." & variables.outputFormat, variables.jsonResult);
@@ -178,19 +286,27 @@
 			variables.htmlReport = fileRead(variables.currentWorkingDirectory & "report-template.html");
 			
 			variables.htmlReport = replace(variables.htmlReport, "${securityAnalyzerResult}", variables.jsonResult);
-			variables.htmlReport = replace(variables.htmlReport, "${reportDate}", now().dateTimeFormat("full"));
+			variables.htmlReport = replace(variables.htmlReport, "${reportDate}", variables.now.dateTimeFormat("full"));
 			variables.htmlReport = replace(variables.htmlReport, "${scanDirectory}", variables.scanDirectory);
 			variables.htmlReport = replace(variables.htmlReport, "${scanDuration}", variables.scanDuration & " seconds");
 			variables.htmlReport = replace(variables.htmlReport, "${vulnerabilityList}", generateVulnerabilityTable(variables.scanResult));
 			variables.htmlReport = replace(variables.htmlReport, "${unscanableList}", generateUnscanableTable(variables.scanResult));
+			
 			fileWrite(variables.outputDirectory & variables.outputFilename & "." & variables.outputFormat, variables.htmlReport);
 			break;
 		default:
 		
 	}
 
+	cli.write("Scan Compelete - " & variables.now.dateTimeFormat("full") & variables.crlf);
+	cli.write(repeatString("-", 72) & variables.crlf);
+	cli.write("Scan Directory .: " & variables.scanDirectory & variables.crlf);
+	cli.write("Scan Durarion ..: " & variables.scanDuration & " seconds" & variables.crlf);
+	cli.write("Report File ....: " & variables.outputDirectory & variables.outputFilename & "." & variables.outputFormat & variables.crlf);
+	cli.write(repeatString("-", 72) & variables.crlf);
+	
+	// writeDump(var=variables.scanResult, format="text");
+	
 	cli.exit(0);
-
-//writeDump(var=variables, format="text");
 
 </cfscript>
