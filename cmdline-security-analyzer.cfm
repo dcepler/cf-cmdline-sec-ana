@@ -212,6 +212,12 @@
 	variables.outputFilename = cli.getNamedArg("outputFilename")?: "securityanalyzer-" & variables.now.dateTimeFormat("yyyymmddHHnnss");
 	variables.outputFormat = cli.getNamedArg("outputFormat")?: "html";
 
+	// version check to ensure can properly communicate with security analyzer via RDS
+	if (listGetAt(server.coldfusion.productVersion, 1) == "2016" && listGetAt(server.coldfusion.productVersion, 3) != "01") {
+		cli.writeError("ERROR: Incorrect version of ColdFusion Server, must be ColdFusion 2016 Update 1");
+		cli.exit(-3);
+	}
+
 	// show help information if no args or first arg is "help"
 	if (arrayIsEmpty(cli.getArgs()) || findNoCase("help", cli.getArg(1))) {
 		generateHelp();
