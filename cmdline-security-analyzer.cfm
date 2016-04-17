@@ -18,26 +18,24 @@
 <cfscript>
 
 	public void function generateHelp() {
-		var crlf = chr(13) & chr(10);
 		
-		cli.write(crlf);
-		cli.write("cmdline-security-analyzer.cfm - run ColdFusion 2016 security analyzer from CLI" & crlf);
-		cli.write("Copyright (C) 2016 - David C. Epler - dcepler@dcepler.net" & crlf & crlf);
-		cli.write("Arguments:" & crlf);
-		cli.write("  [username] - username to connect with, default: admin" & crlf);
-		cli.write("  password - password to connect with, required" & crlf);
-		cli.write("  scanDirectory - directory to scan, required" & crlf);
-		cli.write("  [recursive] - scan directories recursively, default: true" & crlf);
-		cli.write("  [serverURL] - server URL for service, default: http://127.0.0.1:8500" & crlf);
-		cli.write("  [pollDelay] - polling wait time in milliseconds, default: 1000" & crlf);
-		cli.write("  [outputDirectory] - output directory, default: current directory" & crlf);
-		cli.write("  [outputFilename] - output filename, default: securityanalyzer-yyyymmddhhmmss" & crlf);
-		cli.write("  [outputFormat] - json or html, default: html" & crlf);
-
-		cli.write(crlf);
-		cli.write("Example:" & crlf);
-		cli.write("scanDirectory=c:\inetpub\wwwroot password=myPassword" & crlf);
-
+		cli.writeln("");
+		cli.writeln("cmdline-security-analyzer.cfm - run ColdFusion 2016 security analyzer from CLI");
+		cli.writeln("Copyright (C) 2016 - David C. Epler - dcepler@dcepler.net");
+		cli.writeln("");
+		cli.writeln("Arguments:");
+		cli.writeln("  [username] - username to connect with, default: admin");
+		cli.writeln("  password - password to connect with, required");
+		cli.writeln("  scanDirectory - directory to scan, required");
+		cli.writeln("  [recursive] - scan directories recursively, default: true");
+		cli.writeln("  [serverURL] - server URL for service, default: http://127.0.0.1:8500");
+		cli.writeln("  [pollDelay] - polling wait time in milliseconds, default: 1000");
+		cli.writeln("  [outputDirectory] - output directory, default: current directory");
+		cli.writeln("  [outputFilename] - output filename, default: securityanalyzer-yyyymmddhhmmss");
+		cli.writeln("  [outputFormat] - json or html, default: html");
+		cli.writeln("");
+		cli.writeln("Example:");
+		cli.writeln("scanDirectory=c:\inetpub\wwwroot password=myPassword");
 	}
 
 	// Used strXor() by Peter Day from http://cflib.org/udf/strXOR as basis for function
@@ -194,7 +192,6 @@
 	variables.securityAnalyzerQueryString = "/CFIDE/main/ide.cfm?CFSRV=IDE&ACTION=SECURITYANALYZER";
 	variables.userAgent = "Mozilla/3.0 (compatible; Macromedia RDS Client)";
 	variables.requestTimeout = 60;
-	variables.crlf = chr(13) & chr(10);
 	variables.now = now();
 	
 	// determine current working directory
@@ -304,12 +301,12 @@
 		
 	}
 
-	cli.write("Scan Compelete - " & variables.now.dateTimeFormat("full") & variables.crlf);
-	cli.write(repeatString("-", 72) & variables.crlf);
-	cli.write("Scan Directory .: " & variables.scanDirectory & variables.crlf);
-	cli.write("Scan Durarion ..: " & variables.scanDuration & " seconds" & variables.crlf);
-	cli.write("Report File ....: " & variables.outputDirectory & variables.outputFilename & "." & variables.outputFormat & variables.crlf);
-	cli.write(repeatString("-", 72) & variables.crlf);
+	cli.writeln("Scan Compelete - " & variables.now.dateTimeFormat("full"));
+	cli.writeln(repeatString("-", 72));
+	cli.writeln("Scan Directory .: " & variables.scanDirectory);
+	cli.writeln("Scan Durarion ..: " & variables.scanDuration & " seconds");
+	cli.writeln("Report File ....: " & variables.outputDirectory & variables.outputFilename & "." & variables.outputFormat);
+	cli.writeln(repeatString("-", 72));
 	
 	// writeDump(var=variables.scanResult, format="text");
 	
