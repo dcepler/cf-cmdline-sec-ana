@@ -61,7 +61,7 @@
 									<th>Filename</th>
 									<th>Vulnerability</th>
 									<th>Type</th>
-									<th>Line></th>
+									<th>Line</th>
 									<th>Column</th>
 									<th>Fragment</th>
 								</tr>
@@ -113,10 +113,10 @@
 	$(document).ready(function() {
 
 		// vulnerability counters
-		counter = { 'xssattack': 0, 
-					'csrfattack': 0,
+		counter = { 'xss': 0, 
+					'csrf': 0,
 					'sqlinjection': 0,
-					'htmltopdfxssattack': 0,
+					'htmltopdfxss': 0,
 					'cookiesvalidations': 0,
 					'cflocationvalidations': 0,
 					'passwords': 0,
@@ -128,10 +128,20 @@
 					'warning': 0};
 
 		// generate data table for vulnerability report
-		$('#reportDataTable').DataTable();
+		$('#reportDataTable').DataTable({
+	        lengthMenu: [
+	            [ 25, 50, 100, -1 ],
+	            [ '25', '50', '100', 'All' ]
+	        ]
+	    });
 
 		// generate data table for unscanable files
-		$('#unscanableDataTable').DataTable();
+		$('#unscanableDataTable').DataTable({
+	        lengthMenu: [
+	            [ 25, 50, 100, -1 ],
+	            [ '25', '50', '100', 'All' ]
+	        ]
+		});
 
 		// count vulnerabilities and types
 		$.each(securityAnalyzerData.errors, function(id, item) {
@@ -147,7 +157,7 @@
             		label: "Vulnerability Types",
             		fillColor: "#F7464A",
             		highlightFill: "#FF5A5E",
-            		data: [counter.sqlinjection, counter.xssattack, counter.htmltopdfxssattack, counter.csrfattack, counter.cookiesvalidations, counter.cflocationvalidations, counter.passwords, counter.fileupload, counter.getvspost, counter.fileinjection, counter.unnamedapp]
+            		data: [counter.sqlinjection, counter.xss, counter.htmltopdfxss, counter.csrf, counter.cookiesvalidations, counter.cflocationvalidations, counter.passwords, counter.fileupload, counter.getvspost, counter.fileinjection, counter.unnamedapp]
         			}
 			    ]
 		};

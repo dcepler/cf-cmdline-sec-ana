@@ -117,9 +117,8 @@
 		// convert JSON to ColdFusion variables
 		scanResult = deserializeJSON(jsonString, true);
 		
-		// populate items needed for subsequent commands
+		// populate id needed for subsequent commands
 		id = scanResult["id"];
-		percentageComplete = scanResult["percentage"];
 
 		// generate status command until reports 100% complete
 		while (percentageComplete != 100) {
@@ -177,12 +176,8 @@
 	public string function generateUnscanableTable(required struct data){
 		var tableData = "";
 		
-		for (var item in arguments.data.cannotparsefiles) {
-			tableData &= "<tr><td>" & item & "</td><td>Encrypted</td></tr>";
-		}
-		
-		for (var item in arguments.data.invalidfiles) {
-			tableData &= "<tr><td>" & item & "</td><td>Syntax Error</td></tr>";
+		for (var item in arguments.data.filesnotscanned) {
+			tableData &= "<tr><td>" & item.filename & "</td><td>" & item.reason &"</td></tr>";
 		}
 		
 		return tableData;		
@@ -210,8 +205,8 @@
 	variables.outputFormat = cli.getNamedArg("outputFormat")?: "html";
 
 	// version check to ensure can properly communicate with security analyzer via RDS
-	if (listGetAt(server.coldfusion.productVersion, 1) == "2016" && listGetAt(server.coldfusion.productVersion, 3) != "01") {
-		cli.writeError("ERROR: Incorrect version of ColdFusion Server, must be ColdFusion 2016 Update 1");
+	if (listGetAt(server.coldfusion.productVersion, 1) == "2016" && listGetAt(server.coldfusion.productVersion, 3) != "02") {
+		cli.writeError("ERROR: Incorrect version of ColdFusion Server, must be ColdFusion 2016 Update 2");
 		cli.exit(-3);
 	}
 
