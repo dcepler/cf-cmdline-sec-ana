@@ -34,6 +34,8 @@
 		cli.writeln("  [outputFilename] - output filename, default: securityanalyzer-yyyymmddhhmmss");
 		cli.writeln("  [outputFormat] - json or html, default: html");
 		cli.writeln("");
+		cli.writeln("  *** Requires ColdFusion 2016 Update 2 or higher ***");
+		cli.writeln("");
 		cli.writeln("Example:");
 		cli.writeln("scanDirectory=c:\inetpub\wwwroot password=myPassword");
 	}
@@ -204,17 +206,19 @@
 	variables.outputFilename = cli.getNamedArg("outputFilename")?: "securityanalyzer-" & variables.now.dateTimeFormat("yyyymmddHHnnss");
 	variables.outputFormat = cli.getNamedArg("outputFormat")?: "html";
 
-	// version check to ensure can properly communicate with security analyzer via RDS
-	if (listGetAt(server.coldfusion.productVersion, 1) == "2016" && listGetAt(server.coldfusion.productVersion, 3) != "02") {
-		cli.writeError("ERROR: Incorrect version of ColdFusion Server, must be ColdFusion 2016 Update 2");
-		cli.exit(-3);
-	}
-
 	// show help information if no args or first arg is "help"
 	if (arrayIsEmpty(cli.getArgs()) || findNoCase("help", cli.getArg(1))) {
 		generateHelp();
 		cli.exit(0);
 	}
+
+	// version check to ensure can properly communicate with security analyzer via RDS
+	if ((val(listGetAt(server.coldfusion.productVersion, 1)) != 2016) && (val(listGetAt(server.coldfusion.productVersion, 3)) < 2)) {
+		cli.writeError("ERROR: Incorrect version of ColdFusion Server, must be ColdFusion 2016 Update 2 or greater");
+		cli.exit(-3);
+	}
+
+	// TODO: remote version check from [serverURL]/CFIDE/adminapi/administrator.cfc?method=getBuildNumber
 
 	// validate arguments
 	if (!structKeyExists(variables, "password")) {
