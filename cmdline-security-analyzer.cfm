@@ -303,7 +303,7 @@
 	cli.writeln("Scan Compelete - " & variables.now.dateTimeFormat("full"));
 	cli.writeln(repeatString("-", 72));
 	cli.writeln("Scan Directory .: " & variables.scanDirectory);
-	cli.writeln("Scan Durarion ..: " & variables.scanDuration & " seconds");
+	cli.writeln("Scan Duration ..: " & variables.scanDuration & " seconds");
 	cli.writeln("Report File ....: " & variables.outputDirectory & variables.outputFilename & "." & variables.outputFormat);
 	cli.writeln(repeatString("-", 72));
 	
