@@ -119,6 +119,10 @@
 		// convert JSON to ColdFusion variables
 		scanResult = deserializeJSON(jsonString, true);
 		
+		if (structKeyExists(scanresult,"errormessage") && findnocase("Security Code Analyzer is not available in this edition of the ColdFusion Server",scanresult.errormessage)){
+			throw(type="wrongVersion", message="ERROR: wrong CF edition", detail="#scanresult.errormessage#", errorCode=-2); 
+		}
+
 		// populate id needed for subsequent commands
 		id = scanResult["id"];
 
